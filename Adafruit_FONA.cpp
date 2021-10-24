@@ -142,8 +142,11 @@ bool Adafruit_FONA::begin(Stream &port) {
   } else if (prog_char_strstr(replybuffer, (prog_char *)F("SIMCOM_SIM5320E")) !=
              0) {
     _type = FONA3G_E;
+  } else if (prog_char_strstr(replybuffer, (prog_char *)F("SIM800 R14.18")) !=
+             0) {
+    _type = FONA800_R14;
   }
-
+// SIM800 R14.18
   if (_type == FONA800L) {
     // determine if L or H
 
@@ -697,14 +700,26 @@ bool Adafruit_FONA::callerIdNotification(bool enable, uint8_t interrupt) {
  * @return true: success, false: failure
  */
 bool Adafruit_FONA::incomingCallNumber(char *phonenum) {
+  int retry=0;
   //+CLIP: "<incoming phone number>",145,"",0,"",0
   if (!Adafruit_FONA::_incomingCall)
     return false;
 
   readline();
   while (!prog_char_strcmp(replybuffer, (prog_char *)F("RING")) == 0) {
+  
     flushInput();
     readline();
+  
+    retry++;
+  
+    if(retry > 1)
+    {
+      Adafruit_FONA::_incomingCall = false;
+      return false;
+
+    } 
+  
   }
 
   readline(); // reads incoming phone number line
@@ -886,20 +901,20 @@ bool Adafruit_FONA::sendSMS(char *smsaddr, char *smsmsg) {
 
   DEBUG_PRINTLN("^Z");
 
-  if ((_type == FONA3G_A) || (_type == FONA3G_E)) {
+  if ((_type == FONA3G_A) || (_type == FONA3G_E) || (_type == FONA800_R14)) {
     // Eat two sets of CRLF
     readline(200);
-    // DEBUG_PRINT("Line 1: "); DEBUG_PRINTLN(strlen(replybuffer));
+     DEBUG_PRINT("Line 1: "); DEBUG_PRINTLN(strlen(replybuffer));
     readline(200);
-    // DEBUG_PRINT("Line 2: "); DEBUG_PRINTLN(strlen(replybuffer));
+     DEBUG_PRINT("Line 2: "); DEBUG_PRINTLN(strlen(replybuffer));
   }
   readline(10000); // read the +CMGS reply, wait up to 10 seconds!!!
-  // DEBUG_PRINT("Line 3: "); DEBUG_PRINTLN(strlen(replybuffer));
+   DEBUG_PRINT("Line 3: "); DEBUG_PRINTLN(strlen(replybuffer));
   if (strstr(replybuffer, "+CMGS") == 0) {
     return false;
   }
   readline(1000); // read OK
-  // DEBUG_PRINT("* "); DEBUG_PRINTLN(replybuffer);
+   DEBUG_PRINT("* "); DEBUG_PRINTLN(replybuffer);
 
   if (strcmp(replybuffer, "OK") != 0) {
     return false;
@@ -1157,7 +1172,7 @@ int8_t Adafruit_FONA::GPSstatus(void) {
     else
       return 1;
   }
-  if (_type == FONA3G_A || _type == FONA3G_E) {
+  if (_type == FONA3G_A || _type == FONA3G_E || _type == FONA800_R14) {
     // FONA 3G doesn't have an explicit 2D/3D fix status.
     // Instead just look for a fix and if found assume it's a 3D fix.
     getReply(F("AT+CGPSINFO"));
@@ -1201,7 +1216,7 @@ int8_t Adafruit_FONA::GPSstatus(void) {
 uint8_t Adafruit_FONA::getGPS(uint8_t arg, char *buffer, uint8_t maxbuff) {
   int32_t x = arg;
 
-  if ((_type == FONA3G_A) || (_type == FONA3G_E)) {
+  if ((_type == FONA3G_A) || (_type == FONA3G_E)|| (_type ==FONA800_R14)) {
     getReply(F("AT+CGPSINFO"));
   } else if (_type == FONA808_V1) {
     getReply(F("AT+CGPSINF="), x);
@@ -1252,7 +1267,7 @@ bool Adafruit_FONA::getGPS(float *lat, float *lon, float *speed_kph,
   if (res_len == 0)
     return false;
 
-  if (_type == FONA3G_A || _type == FONA3G_E) {
+  if (_type == FONA3G_A || _type == FONA3G_E || _type == FONA800_R14) {
     // Parse 3G respose
     // +CGPSINFO:4043.000000,N,07400.000000,W,151015,203802.1,-12.0,0.0,0
     // skip beginning

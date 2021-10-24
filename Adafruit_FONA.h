@@ -16,6 +16,7 @@
 
 #define FONA3G_A 4
 #define FONA3G_E 5
+#define FONA800_R14 6
 
 // Set the preferred SMS storage.
 //   Use "SM" for storage on the SIM.
